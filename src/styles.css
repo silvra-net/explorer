@@ -1,0 +1,1687 @@
+/*
+  Helix shared design system — an achromatic grey scale with black (light) or white (dark) as the
+  only accent, and colour reserved for state. Aligned with silvra.net.
+
+  The token values are copied verbatim from the node's status page and the wallet. This app is
+  the third surface of one product, and a block explorer that introduces its own palette reads
+  as somebody else's site showing your chain.
+
+  What is new here is the *register*. This is laid out as a board rather than a document: fixed
+  viewport, seven regions, nothing to scroll past. An explorer answers questions about a whole
+  network, and answering one of them used to mean navigating away from the others — reading a
+  block meant losing sight of whether the set was still co-signing, which is the thing this
+  chain can actually go wrong at. Panels scroll inside themselves; the page does not.
+
+  Below 1200px (or on a short viewport) that inverts and it becomes an ordinary scrolling page,
+  because a board that does not fit is worse than a document.
+
+  Theme handling has three states, matching the wallet exactly: bare :root is light, the media
+  query covers "system", and [data-theme] wins over both so the toggle works in either
+  direction.
+*/
+
+:root {
+  /* Tells the browser which way round the page is, so it draws scrollbars, focus rings and form
+     controls to match. Without it a dark page gets a white native scrollbar — the one piece of
+     the design a stylesheet cannot otherwise reach. */
+  color-scheme: light;
+
+  --ground: #fafafa;
+  --panel: #ffffff;
+  --panel-2: #f5f5f5;
+  --line: #e5e5e5;
+  --ink: #0a0a0a;
+  --dim: #737373;
+  --accent: #000000;
+  --accent-soft: #f5f5f5;
+  --accent-ink: #ffffff;
+  --warn-bg: #fdf4e3;
+  --warn-line: #ecd7a4;
+  --warn-ink: #8a5a06;
+  --ok: #15803d;
+  --ok-bg: #e9f7ee;
+  --bad: #c81e1e;
+  --bad-bg: #fceaea;
+  --bar: #d4d4d4;
+
+  --radius: 10px;
+  --radius-sm: 6px;
+  --mono: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace;
+  --sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --ground: #000000;
+    --panel: #0c0c0c;
+    --panel-2: #171717;
+    --line: #262626;
+    --ink: #f5f5f5;
+    --dim: #a3a3a3;
+    --accent: #ffffff;
+    --accent-soft: #171717;
+    --accent-ink: #000000;
+    --warn-bg: #241c0d;
+    --warn-line: #4d3c17;
+    --warn-ink: #e0a44a;
+    --ok: #22c55e;
+    --ok-bg: #0d2114;
+    --bad: #ef4444;
+    --bad-bg: #241113;
+    --bar: #404040;
+  }
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --ground: #000000;
+  --panel: #0c0c0c;
+  --panel-2: #171717;
+  --line: #262626;
+  --ink: #f5f5f5;
+  --dim: #a3a3a3;
+  --accent: #ffffff;
+  --accent-soft: #171717;
+  --accent-ink: #000000;
+  --warn-bg: #241c0d;
+  --warn-line: #4d3c17;
+  --warn-ink: #e0a44a;
+  --ok: #22c55e;
+  --ok-bg: #0d2114;
+  --bad: #ef4444;
+  --bad-bg: #241113;
+  --bar: #404040;
+}
+
+/* Thin, monochrome scrollbars. On a board every panel can overflow, so this is not a detail —
+   without it the screen grows heavy grey chrome bars down six different edges. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--bar) transparent;
+}
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--bar);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--dim);
+}
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+/* React's mount point is part of this chain and easy to forget: without a height of its own it
+   is an auto-height box between <body> and the board, and the board's `height: 100%` resolves
+   against nothing — the grid then grows to its content and pushes the identity strip off the
+   bottom of the screen. */
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  /* The grid draws its own hairlines by letting this show through 1px gaps, so no panel needs a
+     border and none of them can disagree about one. */
+  background: var(--line);
+  color: var(--ink);
+  font: 13.5px/1.5 var(--sans);
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden;
+}
+
+.mono,
+.num {
+  font-family: var(--mono);
+}
+.num {
+  font-variant-numeric: tabular-nums;
+}
+.dim {
+  color: var(--dim);
+}
+.small {
+  font-size: 12px;
+}
+.strong {
+  font-weight: 650;
+}
+.pad-sm {
+  padding: 10px 14px;
+}
+
+/* With a monochrome accent, colour cannot tell a link from body text, so links carry an
+   underline instead. Not a compromise — a link identified by hue alone already failed for anyone
+   who cannot separate those hues. Inside a dense table almost every cell is a link, so there the
+   underline waits for hover and the column says what the value is. */
+a {
+  color: var(--ink);
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+  text-decoration-color: var(--dim);
+}
+a:hover {
+  text-decoration-color: var(--ink);
+}
+table a,
+.brand,
+.vaddr {
+  text-decoration: none;
+}
+table a:hover,
+.vaddr:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 3px;
+}
+
+h1,
+h2,
+h3 {
+  margin: 0;
+  letter-spacing: -0.02em;
+  font-weight: 650;
+}
+
+/* ---------- the board shell ---------- */
+
+/*
+  Flex rather than grid, and that is not a style preference.
+
+  With `grid-template-rows: auto auto 1fr auto` the alert band has to exist for the rows to line
+  up — and it only renders when something is wrong. On a healthy chain the three remaining
+  children fell into rows 1–3, which handed the `1fr` to the identity strip and left the board
+  itself in an `auto` row: it grew to its content and pushed the strip off the bottom of the
+  screen. A column of flex items cannot develop that bug, because nothing is positioned by
+  counting.
+*/
+.board-app {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.board-app > .board {
+  flex: 1;
+}
+
+.board {
+  display: grid;
+  grid-template-columns: minmax(230px, 290px) minmax(0, 1fr) minmax(310px, 400px);
+  /* Row one is sized to the verdict cell's content — word, reason, height, age and heartbeat —
+     because that cell is the one that must never scroll: a heartbeat you have to scroll to see
+     is not a heartbeat. The block stream gets the larger of the two flexible rows, since its
+     rows are what a reader actually walks through. */
+  grid-template-rows: minmax(0, 216px) minmax(0, 1.15fr) minmax(0, 1fr);
+  grid-template-areas:
+    "state   rhythm validators"
+    "metrics blocks inspector"
+    "metrics txs    inspector";
+  gap: 1px;
+  min-height: 0;
+}
+
+.cell {
+  background: var(--panel);
+  min-height: 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.cell > header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 9px 14px 7px;
+  flex: none;
+}
+.cell > header h2 {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--dim);
+}
+.cell > header .aside {
+  font-size: 11.5px;
+  color: var(--dim);
+  text-align: right;
+  min-width: 0;
+}
+.cell .body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+.cell .body.pad {
+  padding: 0 14px 12px;
+}
+/* The child scrolls, not this. See Cell.tsx — a body that also scrolls puts a second scrollbar
+   beside the table's own. */
+.cell .body.own-scroll {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* ---------- top bar ---------- */
+
+.topbar {
+  background: var(--panel);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 14px;
+  flex: none;
+}
+.topbar .brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--ink);
+  flex: none;
+}
+.topbar .brand img {
+  width: 22px;
+  height: 22px;
+  border-radius: 5px;
+  display: block;
+}
+.topbar .name {
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  font-size: 12px;
+  text-transform: uppercase;
+}
+.topbar .sub {
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  font-size: 12px;
+  text-transform: uppercase;
+  color: var(--dim);
+}
+.topsearch {
+  flex: 1;
+  min-width: 120px;
+  max-width: 560px;
+  margin-inline: auto;
+}
+.clock {
+  font-size: 12px;
+  color: var(--ink);
+  flex: none;
+}
+.topbar > a {
+  font-size: 12px;
+  color: var(--dim);
+  flex: none;
+}
+.topbar > a:hover {
+  color: var(--ink);
+}
+
+.bbtn {
+  background: transparent;
+  border: 1px solid var(--line);
+  color: var(--dim);
+  border-radius: var(--radius-sm);
+  padding: 4px 9px;
+  font: inherit;
+  font-size: 11.5px;
+  cursor: pointer;
+  white-space: nowrap;
+  flex: none;
+}
+.bbtn:hover:not(:disabled) {
+  color: var(--ink);
+  border-color: var(--dim);
+}
+.bbtn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+/* ---------- search ---------- */
+
+.search {
+  display: flex;
+  gap: 6px;
+  width: 100%;
+}
+.search input {
+  flex: 1;
+  min-width: 0;
+  padding: 6px 10px;
+  border: 1px solid var(--line);
+  background: var(--ground);
+  color: var(--ink);
+  border-radius: var(--radius-sm);
+  font: 12.5px/1.4 var(--mono);
+}
+.search input::placeholder {
+  color: var(--dim);
+  font-family: var(--sans);
+}
+.search input:focus {
+  border-color: var(--accent);
+  outline: none;
+}
+.search button {
+  padding: 6px 12px;
+  border: 1px solid var(--accent);
+  background: var(--accent);
+  color: var(--accent-ink);
+  border-radius: var(--radius-sm);
+  font: 600 12px/1.4 var(--sans);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.search button:hover {
+  filter: brightness(1.12);
+}
+.search-note {
+  margin: 5px 0 0;
+  font-size: 12px;
+  color: var(--bad);
+}
+.search-wrap.compact {
+  position: relative;
+}
+.search-wrap.compact .search-note {
+  position: absolute;
+  background: var(--panel);
+  padding: 4px 8px;
+  border: 1px solid var(--bad);
+  border-radius: var(--radius-sm);
+  z-index: 40;
+}
+
+/* ---------- live indicator ---------- */
+
+/*
+  Whether the page is still being fed, as opposed to whether the chain is still producing —
+  those fail independently and the heartbeat answers the other one. It rings once per block,
+  which is the only reason a reader can tell live data from a screenshot.
+*/
+.live {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  color: var(--dim);
+  flex: none;
+}
+.live-dot {
+  position: relative;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--dim);
+  flex: none;
+}
+.live-live .live-dot {
+  background: var(--ok);
+}
+.live-syncing .live-dot {
+  background: var(--warn-ink);
+}
+.live-offline .live-dot {
+  background: var(--bad);
+  animation: live-blink 1.4s steps(1, end) infinite;
+}
+@keyframes live-blink {
+  50% {
+    opacity: 0.25;
+  }
+}
+.live-label {
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-weight: 700;
+  font-size: 9.5px;
+}
+.live-dot .ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 1px solid var(--ok);
+  animation: live-ring 0.9s ease-out forwards;
+}
+@keyframes live-ring {
+  from {
+    transform: scale(1);
+    opacity: 0.9;
+  }
+  to {
+    transform: scale(3.4);
+    opacity: 0;
+  }
+}
+
+/* ---------- alerts ---------- */
+
+.alert {
+  background: var(--warn-bg);
+  color: var(--warn-ink);
+  padding: 6px 14px;
+  font-size: 12px;
+  flex: none;
+}
+.alert.bad {
+  background: var(--bad-bg);
+  color: var(--bad);
+}
+.alert b {
+  font-weight: 700;
+}
+
+/* ---------- the verdict ---------- */
+
+.state-body {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+.state {
+  font-size: clamp(20px, 2.5vw, 30px);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1;
+  margin: 0 0 5px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.state .dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--dim);
+  flex: none;
+}
+.state-producing .dot {
+  background: var(--ok);
+}
+.state-degraded .dot {
+  background: var(--warn-ink);
+}
+.state-syncing .dot {
+  background: var(--warn-ink);
+}
+.state-stalled .dot,
+.state-unreachable .dot {
+  background: var(--bad);
+  animation: live-blink 1.4s steps(1, end) infinite;
+}
+.state-why {
+  font-size: 11.5px;
+  color: var(--dim);
+  margin: 0;
+  max-width: 40ch;
+}
+.state-height {
+  margin-top: auto;
+  padding-top: 8px;
+}
+.state-height small {
+  display: block;
+  font-size: 9.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--dim);
+  font-weight: 700;
+  margin-bottom: 1px;
+}
+/* The padding is for the landing flash, which would otherwise be a hard-edged rectangle clipped
+   to the glyphs; the matching negative margin keeps the digits aligned with the label. */
+.state-height > span {
+  display: block;
+  font-size: clamp(24px, 3vw, 36px);
+  font-weight: 700;
+  letter-spacing: -0.04em;
+  line-height: 1.05;
+  width: max-content;
+  max-width: 100%;
+  margin-left: -6px;
+  padding: 1px 6px;
+  border-radius: 7px;
+}
+.state-since {
+  margin: 7px 0 0;
+  font-size: 11.5px;
+  color: var(--dim);
+}
+.state-since b {
+  color: var(--ink);
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+/* ---------- the heartbeat ---------- */
+
+/*
+  Fills over the interval this chain has actually been keeping, and empties the moment a block
+  lands. On a healthy chain it is a slow sweep you stop noticing; during a stall it sits full and
+  red, which is the point — a stall should look wrong before it is read. It is the only thing
+  here that moves continuously, and that is what makes a frozen one mean something.
+*/
+.beat {
+  height: 3px;
+  background: var(--panel-2);
+  border-radius: 2px;
+  margin-top: 8px;
+  overflow: hidden;
+  flex: none;
+}
+.beat i {
+  display: block;
+  height: 100%;
+  width: 0;
+  background: var(--ink);
+  transition: width 0.18s linear;
+}
+.beat i.over {
+  background: var(--bad);
+}
+
+/* ---------- block rhythm ---------- */
+
+/*
+  Bars, not a line: each block is a discrete event and the question is "was this one late", not
+  "what is the trend". A missed consensus round is one tall bar, which is exactly how it feels.
+  The scale never drops below 8s, so this chain's ordinary 1.9s sits at about a quarter height —
+  that low baseline is the design, because it is what leaves a stall somewhere to go.
+*/
+/* The reading lives here rather than in the cell header, because hovering a bar replaces it with
+   that block's interval — putting the answer where the eye already is instead of waiting a
+   second for a native tooltip somewhere else. */
+.rhythm-box {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+.rhythm-head {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 6px;
+  flex: none;
+}
+.rhythm {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  flex: 1;
+  min-height: 60px;
+}
+.rhythm .b {
+  flex: 1 1 0;
+  min-width: 2px;
+  background: var(--bar);
+  border-radius: 1px 1px 0 0;
+  transition:
+    height 0.25s ease,
+    background-color 0.15s ease;
+  cursor: crosshair;
+}
+.rhythm .b.warn {
+  background: var(--warn-ink);
+}
+.rhythm .b.bad {
+  background: var(--bad);
+}
+/* Hovering the row dims everything but the bar under the pointer, so the one being read out is
+   unmistakable. */
+.rhythm:hover .b {
+  opacity: 0.4;
+}
+.rhythm .b:hover {
+  opacity: 1;
+  background: var(--accent);
+}
+.rhythm .b.warn:hover {
+  background: var(--warn-ink);
+}
+.rhythm .b.bad:hover {
+  background: var(--bad);
+}
+.rhythm-empty {
+  font-size: 12px;
+  color: var(--dim);
+}
+.rhythm-note {
+  font-size: 11.5px;
+  color: var(--dim);
+}
+
+/* ---------- a block landing ---------- */
+
+/*
+  One orchestrated moment rather than four scattered effects: the height flashes, the newest bar
+  grows in, the live ring expands, the newest row arrives. Scattered motion on a board teaches
+  people to ignore it; a single recognisable event does the opposite.
+*/
+@keyframes land {
+  from {
+    background: var(--accent-soft);
+  }
+  to {
+    background: transparent;
+  }
+}
+.landed {
+  animation: land 0.7s ease-out;
+}
+@keyframes grow-in {
+  from {
+    transform: scaleY(0.05);
+    opacity: 0.3;
+  }
+  to {
+    transform: scaleY(1);
+    opacity: 1;
+  }
+}
+.rhythm .b.fresh {
+  animation: grow-in 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+  transform-origin: bottom;
+}
+@keyframes row-in {
+  from {
+    background: var(--accent-soft);
+  }
+  to {
+    background: transparent;
+  }
+}
+tr.fresh td {
+  animation: row-in 0.9s ease-out;
+}
+
+/* ---------- telemetry tiles ---------- */
+
+.tiles {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1px;
+  background: var(--line);
+  margin: -1px -14px 0;
+}
+.tile {
+  background: var(--panel);
+  padding: 8px 14px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+.tile .k {
+  font-size: 9.5px;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  color: var(--dim);
+  font-weight: 700;
+}
+.tile .v {
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  /* Sized to hold a seven-figure supply in a half-width tile without wrapping. */
+  font-size: clamp(13px, 1.15vw, 16px);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  margin-top: 1px;
+  overflow-wrap: anywhere;
+}
+.tile .v small {
+  font-size: 10.5px;
+  font-weight: 500;
+  color: var(--dim);
+  letter-spacing: 0;
+}
+
+/* ---------- the validator set ---------- */
+
+/*
+  The co-signature strip turned ninety degrees. In the block table a row is a block and one
+  validator's history is a column you have to know to read downwards; here a row is a validator
+  and the history reads left to right, which is the question an operator arrives with.
+*/
+.vset {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+.vrow {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+/* One line per validator once the set is large enough that the roomy version stops fitting —
+   see ValidatorSet. The head stops growing and the attendance strip moves up beside it. */
+.vset.compact {
+  gap: 2px;
+}
+.vset.compact .vrow {
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  padding: 2px 6px;
+}
+.vset.compact .vhead {
+  flex: none;
+  gap: 6px;
+}
+.vset.compact .vhead .pill {
+  display: none;
+}
+.vset.compact .vver {
+  margin-left: 0;
+}
+.vset.compact .vatt {
+  flex: 1;
+  min-width: 0;
+}
+.vset.compact .att {
+  height: 9px;
+}
+.vhead {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12px;
+}
+.vaddr {
+  color: var(--ink);
+}
+.vver {
+  margin-left: auto;
+  font-size: 10.5px;
+  color: var(--dim);
+}
+/* Only when the set disagrees with itself — see ValidatorSet. */
+.vver.odd {
+  color: var(--warn-ink);
+  font-weight: 700;
+}
+.vpower {
+  font-weight: 700;
+  font-size: 12px;
+}
+.vatt {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.att {
+  display: flex;
+  gap: 1px;
+  flex: 1;
+  min-width: 0;
+  height: 13px;
+}
+.att {
+  align-items: stretch;
+}
+.att i {
+  flex: 1 1 0;
+  min-width: 1px;
+  background: var(--accent);
+  border-radius: 1px;
+}
+/*
+  A miss is drawn, not left blank: an absent cell and a cell that has not loaded yet must not
+  look the same, and this is the one panel where the difference is the whole point.
+
+  Red *and* half height. Colour alone was the odd one out here — the co-signature strip beside it
+  already distinguishes an absence by hatching, which survives being printed, screenshotted in
+  greyscale, or read by someone who cannot separate those hues. A notch in the run does the same
+  job at this size, where hatching would just smear.
+*/
+.att i.miss {
+  background: var(--bad);
+  align-self: flex-end;
+  height: 55%;
+}
+.vcount {
+  font-size: 11px;
+  color: var(--dim);
+  flex: none;
+}
+.vcount.short {
+  color: var(--bad);
+  font-weight: 700;
+}
+
+/* ---------- the co-signature strip ---------- */
+
+/*
+  One cell per validator in the current set, in a stable order, filled where that validator's
+  precommit is in this block's commit certificate. The one question a BFT chain can answer that a
+  proof-of-work chain cannot: not "who produced this block" but "who agreed to it".
+*/
+.cosign {
+  display: inline-flex;
+  gap: 3px;
+  align-items: center;
+}
+.cosign-cell {
+  width: 9px;
+  height: 14px;
+  border-radius: 2px;
+  border: 1px solid var(--accent);
+  background: var(--accent);
+  flex: none;
+}
+.cosign-cell.absent {
+  background: repeating-linear-gradient(
+    135deg,
+    transparent 0 2px,
+    var(--line) 2px 3px
+  );
+  border-color: var(--line);
+}
+/*
+  The proposer is drawn as a ring with a core rather than as a different border colour. The
+  previous rule set `border-color: var(--ink)` over a `var(--accent)` fill — #f5f5f5 against
+  #ffffff in dark, #0a0a0a against #000000 in light — so the legend described a state that was
+  not distinguishable on screen in either theme.
+*/
+.cosign-cell.proposer {
+  background: var(--panel);
+  border-width: 2px;
+  position: relative;
+}
+.cosign-cell.proposer::after {
+  content: "";
+  position: absolute;
+  inset: 2px;
+  border-radius: 1px;
+  background: var(--accent);
+}
+.cosign-unknown {
+  color: var(--dim);
+  font-size: 11px;
+}
+
+/*
+  The same block for a set too large to draw cell by cell — a meter and a count, whose width does
+  not grow with the validator set. Past a dozen validators the per-cell strip stops being
+  scannable and starts being wide enough to break the table column it lives in.
+*/
+.cosign-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+.cosign-count .meter {
+  display: block;
+  width: 54px;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--panel-2);
+  overflow: hidden;
+  flex: none;
+}
+.cosign-count .meter i {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+}
+.cosign-count .meter i.short {
+  background: var(--bad);
+}
+.cosign-count .num {
+  font-size: 11px;
+  color: var(--dim);
+}
+.cosign-count .num.miss {
+  color: var(--bad);
+  font-weight: 700;
+}
+
+.legend {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  font-size: 11px;
+  color: var(--dim);
+  align-items: center;
+}
+.legend .swatch {
+  display: inline-block;
+  width: 9px;
+  height: 12px;
+  border-radius: 2px;
+  border: 1px solid var(--accent);
+  background: var(--accent);
+  margin-right: 5px;
+  vertical-align: -1px;
+  position: relative;
+}
+.legend .swatch.absent {
+  background: repeating-linear-gradient(
+    135deg,
+    transparent 0 2px,
+    var(--line) 2px 3px
+  );
+  border-color: var(--line);
+}
+.legend .swatch.proposer {
+  background: var(--panel);
+  border-width: 2px;
+}
+.legend .swatch.proposer::after {
+  content: "";
+  position: absolute;
+  inset: 1px;
+  background: var(--accent);
+}
+
+/* ---------- dense tables ---------- */
+
+/* Takes the height its flex parent has left over rather than claiming all of it: `height: 100%`
+   ignored the toolbar sitting above it and overflowed the cell by exactly that much. */
+.tbl-wrap {
+  overflow: auto;
+  flex: 1;
+  min-height: 0;
+}
+/* The detail views wrap their tables in this. Inside a 360px inspector a seven-column
+   transaction table is always wider than the pane, and without a scroll container of its own it
+   pushes a horizontal scrollbar onto the whole cell. */
+.tbl-scroll {
+  overflow-x: auto;
+}
+table.dense,
+table.tbl {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12.5px;
+}
+table.dense thead th,
+table.tbl thead th {
+  position: sticky;
+  top: 0;
+  background: var(--panel);
+  z-index: 1;
+  text-align: left;
+  font-size: 9.5px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--dim);
+  font-weight: 700;
+  padding: 5px 14px 6px;
+  white-space: nowrap;
+}
+table.dense td,
+table.tbl td {
+  padding: 5px 14px;
+  white-space: nowrap;
+  border-top: 1px solid var(--line);
+}
+table.dense tbody tr,
+table.tbl tbody tr.clickable {
+  cursor: pointer;
+}
+table.dense tbody tr:hover td,
+table.tbl tbody tr:hover td {
+  background: var(--panel-2);
+}
+table.dense tbody tr.pick td {
+  background: var(--accent-soft);
+}
+
+/* ---------- linked selection ---------- */
+
+/*
+  What makes seven panels one instrument. Pointing at a block anywhere lights it up everywhere;
+  singling out a validator dims the blocks that are not theirs, which turns the list into "show
+  me their turns" without filtering anything away.
+*/
+/* The marker bar goes on the first cell only. An inset shadow on every `td` draws one down the
+   left edge of each of them, which reads as cell borders rather than as a marked row. */
+table.dense tbody tr.linked td {
+  background: var(--panel-2);
+}
+table.dense tbody tr.linked td:first-child,
+table.dense tbody tr.cursor td:first-child {
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+table.dense tbody tr.cursor td {
+  background: var(--accent-soft);
+}
+table.dense tbody tr.faded td {
+  opacity: 0.34;
+}
+.rhythm .b.linked {
+  opacity: 1;
+  background: var(--accent);
+}
+.rhythm:hover .b.linked {
+  opacity: 1;
+}
+/* The singled-out validator's cell, marked in every row so the column can be read down the
+   list — the reading the strip was designed for and could not previously support. */
+.cosign-cell.focus {
+  outline: 1px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.vrow {
+  border-radius: var(--radius-sm);
+  padding: 4px 6px;
+  margin-inline: -6px;
+  cursor: pointer;
+}
+.vrow:hover {
+  background: var(--panel-2);
+}
+.vrow.focused {
+  background: var(--accent-soft);
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+td.r,
+th.r {
+  text-align: right;
+}
+
+/* ---------- pills and badges ---------- */
+
+.pill,
+.badge {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--panel-2);
+  color: var(--dim);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.pill.ok,
+.badge.ok {
+  background: var(--ok-bg);
+  color: var(--ok);
+}
+.pill.bad,
+.badge.bad {
+  background: var(--bad-bg);
+  color: var(--bad);
+}
+.pill.warn,
+.badge.warn {
+  background: var(--warn-bg);
+  color: var(--warn-ink);
+}
+.badge.accent {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+/* ---------- the block stream's own controls ---------- */
+
+.stream-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 14px 7px;
+  flex: none;
+}
+.stream-where {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--dim);
+}
+
+/* Says why the feed stopped moving, so a held list does not read as a frozen page — the exact
+   thing the live indicator in the top bar exists to rule out. */
+.frozen-tag {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  float: right;
+  margin: 2px 14px 0 0;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--dim);
+  font-size: 9.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-weight: 700;
+  pointer-events: none;
+}
+
+/* ---------- the inspector ---------- */
+
+/*
+  The detail views render as documents — an eyebrow, a panel, a definition list. Inside a 360px
+  cell that panel would be a box inside a box, and the two-column list would leave eight
+  characters for a 64-character hash. Rather than fork the views, the register is adjusted here:
+  same components, standalone below the board's breakpoint, flattened inside it.
+*/
+.inspector {
+  padding: 0 14px 12px;
+}
+.inspector .eyebrow {
+  font-size: 9.5px;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  color: var(--dim);
+  font-weight: 700;
+  margin: 0 0 7px;
+}
+.inspector .panel {
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  margin-bottom: 10px;
+}
+.inspector .panel-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 0 0 7px;
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 7px;
+}
+.inspector .panel-head h2 {
+  font-size: 14px;
+}
+.inspector .panel-head .hint {
+  font-size: 11px;
+  color: var(--dim);
+}
+.inspector .kv {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0;
+}
+.inspector .kv > dt {
+  font-size: 9.5px;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: var(--dim);
+  font-weight: 700;
+  padding: 7px 0 0;
+}
+.inspector .kv > dd {
+  margin: 0;
+  padding: 1px 0 4px;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+  border-bottom: 1px solid var(--line);
+}
+/* Flush left so the table lines up with the labels above it, but still spaced on the right —
+   zeroing both sides ran "Stake", "2 d ago" and "2,669" together into one word. */
+.inspector table.tbl td,
+.inspector table.tbl th {
+  padding-left: 0;
+  padding-right: 12px;
+}
+.inspector .pager {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  padding-top: 9px;
+  flex-wrap: wrap;
+}
+.inspector .pager button {
+  background: transparent;
+  border: 1px solid var(--line);
+  color: var(--dim);
+  border-radius: var(--radius-sm);
+  padding: 3px 8px;
+  font: inherit;
+  font-size: 11px;
+  cursor: pointer;
+}
+.inspector .pager button:hover:not(:disabled) {
+  color: var(--ink);
+  border-color: var(--dim);
+}
+.inspector .pager button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.inspector .pager a {
+  text-decoration: none;
+}
+.idle {
+  color: var(--dim);
+  font-size: 12px;
+  margin: 0;
+}
+
+/* ---------- the inspector, with nothing selected ---------- */
+
+.idle-body {
+  font-size: 12px;
+}
+.idle-lead {
+  margin: 0 0 10px;
+  color: var(--dim);
+}
+.idle-lead b {
+  color: var(--ink);
+  font-weight: 600;
+}
+.idle-stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1px;
+  background: var(--line);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  margin: 0 0 14px;
+}
+.idle-stats > div {
+  background: var(--panel);
+  padding: 7px 10px;
+}
+.idle-stats dt {
+  font-size: 9.5px;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: var(--dim);
+  font-weight: 700;
+}
+.idle-stats dd {
+  margin: 1px 0 0;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+.idle-stats dd.bad {
+  color: var(--bad);
+}
+.idle-head {
+  font-size: 9.5px;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  color: var(--dim);
+  font-weight: 700;
+  margin: 0 0 5px;
+}
+.idle-head.bad {
+  color: var(--bad);
+}
+.idle-list {
+  list-style: none;
+  margin: 0 0 14px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.idle-list li {
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+.idle-hint {
+  margin: 0;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+  color: var(--dim);
+  font-size: 11.5px;
+}
+.idle kbd,
+.idle-hint kbd {
+  font: inherit;
+  font-family: var(--mono);
+  background: var(--panel-2);
+  border-radius: 4px;
+  padding: 1px 5px;
+  color: var(--ink);
+}
+
+/* ---------- states ---------- */
+
+.notice {
+  padding: 9px 11px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--line);
+  background: var(--panel-2);
+  color: var(--dim);
+  font-size: 12px;
+}
+.notice.bad {
+  border-color: var(--bad);
+  background: var(--bad-bg);
+  color: var(--bad);
+}
+.notice.warn {
+  border-color: var(--warn-line);
+  background: var(--warn-bg);
+  color: var(--warn-ink);
+}
+.notice strong {
+  color: inherit;
+}
+.empty {
+  padding: 18px 0;
+  text-align: center;
+  color: var(--dim);
+  font-size: 12px;
+}
+.skeleton {
+  height: 11px;
+  border-radius: 3px;
+  background: var(--panel-2);
+  animation: pulse-fade 1.4s ease-in-out infinite;
+}
+@keyframes pulse-fade {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
+  }
+}
+
+/* ---------- the identity strip ---------- */
+
+.strip {
+  background: var(--panel);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 20px;
+  padding: 6px 14px;
+  font-size: 11px;
+  color: var(--dim);
+  flex: none;
+  align-items: center;
+}
+.strip span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.strip b {
+  color: var(--dim);
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  font-size: 9.5px;
+  flex: none;
+}
+.strip i {
+  font-style: normal;
+  color: var(--ink);
+  font-family: var(--mono);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.strip .devnet i {
+  color: var(--warn-ink);
+  font-family: var(--sans);
+}
+.strip .spacer {
+  margin-left: auto;
+}
+.endpoint select,
+.endpoint input {
+  padding: 3px 7px;
+  border: 1px solid var(--line);
+  background: var(--ground);
+  color: var(--ink);
+  border-radius: var(--radius-sm);
+  font: 11px/1.3 var(--mono);
+}
+.endpoint input {
+  min-width: 170px;
+}
+
+/* ---------- command palette ---------- */
+
+/*
+  On a screen with no menus and no navigation bar, this is where the keyboard layer becomes
+  discoverable — the shortcuts are listed in it rather than buried in a help page nobody opens.
+*/
+.palette-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  background: color-mix(in srgb, var(--ground) 72%, transparent);
+  backdrop-filter: blur(3px);
+  display: flex;
+  justify-content: center;
+  padding: 12vh 16px 16px;
+}
+.palette {
+  width: min(620px, 100%);
+  max-height: 70vh;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: 0 18px 50px color-mix(in srgb, var(--ink) 22%, transparent);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.palette input {
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  background: transparent;
+  color: var(--ink);
+  padding: 13px 16px;
+  font: 14px/1.4 var(--sans);
+  outline: none;
+  flex: none;
+}
+.palette input::placeholder {
+  color: var(--dim);
+}
+.palette-note {
+  margin: 0;
+  padding: 7px 16px;
+  font-size: 12px;
+  color: var(--bad);
+  flex: none;
+}
+.palette-note.dim {
+  color: var(--dim);
+}
+.palette-list {
+  overflow: auto;
+  padding: 6px 0 8px;
+  min-height: 0;
+}
+.palette-group {
+  margin: 8px 0 3px;
+  padding: 0 16px;
+  font-size: 9.5px;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  color: var(--dim);
+  font-weight: 700;
+}
+.palette-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  width: 100%;
+  padding: 7px 16px;
+  background: transparent;
+  border: 0;
+  color: var(--ink);
+  font: inherit;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+}
+.palette-row.on {
+  background: var(--accent-soft);
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+.palette-hint {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--dim);
+  white-space: nowrap;
+  flex: none;
+}
+.palette-empty {
+  margin: 0;
+  padding: 14px 16px;
+  font-size: 12.5px;
+  color: var(--dim);
+}
+
+/* ---------- fallback: a board that does not fit is worse than a document ---------- */
+
+@media (max-width: 1200px), (max-height: 640px) {
+  html,
+  body {
+    height: auto;
+  }
+  body {
+    overflow: auto;
+  }
+  .board-app {
+    height: auto;
+  }
+  .board {
+    grid-template-columns: 1fr;
+    grid-template-rows: none;
+    grid-template-areas:
+      "state"
+      "rhythm"
+      "metrics"
+      "validators"
+      "blocks"
+      "txs"
+      "inspector";
+  }
+  .cell {
+    overflow: visible;
+  }
+  .cell .body {
+    overflow: visible;
+  }
+  .state-body {
+    min-height: 132px;
+  }
+  .rhythm {
+    min-height: 92px;
+  }
+  /* The two long lists still need a ceiling, or the page becomes the thing the board replaced. */
+  .tbl-wrap {
+    max-height: 340px;
+  }
+  .topbar {
+    flex-wrap: wrap;
+  }
+  .topsearch {
+    order: 9;
+    flex-basis: 100%;
+    max-width: none;
+    margin-inline: 0;
+  }
+}
+
+/*
+  On a phone the board's tables are wider than the screen. They scroll inside their own container
+  rather than dragging the page sideways — but a column somebody cannot see is a column that does
+  not exist, and on the block list that column was the co-signature strip. So the least essential
+  columns are dropped instead, and what remains is the answer the panel is for.
+*/
+@media (max-width: 620px) {
+  table.dense .opt {
+    display: none;
+  }
+  /* Dropping columns bought most of the width back; the last few pixels come from the gutters,
+     which were clipping "3s ago" to "3s ag". */
+  table.dense td,
+  table.dense thead th {
+    padding-inline: 9px;
+  }
+}
+
+/* ---------- motion ---------- */
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ---------- vitals rail ----------
+   One line of numbers under the header, before any panel. Monospace and fixed-width so a digit
+   changing does not shift its neighbours — a value that jitters sideways is unreadable at a
+   glance, which is the only way this row is ever read. */
+.rail {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: stretch;
+  border-bottom: 1px solid var(--line);
+  background: var(--panel);
+}
+.rail-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 16px;
+  border-right: 1px solid var(--line);
+  min-width: 104px;
+}
+.rail-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+  color: var(--dim);
+  white-space: nowrap;
+}
+.rail-value {
+  font-family: var(--mono);
+  font-size: 17px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+.rail-unit { font-size: 11px; color: var(--dim); margin-left: 2px; font-weight: 400; }
+.rail-item.is-ok .rail-value { color: var(--ok); }
+.rail-item.is-warn .rail-value { color: var(--warn-ink); }
+.rail-item.is-bad .rail-value { color: var(--bad); }
+
+@media (max-width: 900px) {
+  .rail-item { min-width: 88px; padding: 7px 12px; }
+  .rail-value { font-size: 15px; }
+}

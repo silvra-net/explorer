@@ -1,37 +1,39 @@
-# explorer.silvra.net
+# Helix Explorer
 
-The Helix block explorer, published to GitHub Pages at explorer.silvra.net.
+A board for watching the Helix chain, published at [explorer.silvra.net](https://explorer.silvra.net/).
 
-## What this repository is, honestly
+## What it is
 
-It holds a **built** explorer, not its source. The build came from the copy that was being
-served under `silvra.net/explorer`, with its asset paths rewritten from `/explorer/` to the
-root so it can live at the root of its own domain.
+One screen, no navigation: the vitals on a rail across the top, then the chain verdict, the
+block rhythm, the block and transaction streams, the validator set with per-validator
+attendance, and an inspector that fills in whatever is selected. Keyboard throughout —
+`⌘K` opens the command palette, `/` focuses search, `j`/`k` walk the block list.
 
-That means a change to the explorer cannot be made here. It has to be made wherever the source
-lives and rebuilt; then replace `index.html`, `assets/` and `logo.png` in this repository,
-rewrite any `/explorer/` prefixes to `/`, and copy `index.html` to `404.html` again.
+## Where the numbers come from
 
-`404.html` is a copy of `index.html`. GitHub Pages serves it for any path that was never built,
-which is what lets a deep link like `/block/41180` survive a hard refresh — Pages answers it
-with status 404 and the client router renders the right page.
+Straight from a node's public RPC, from the visitor's own browser. There is no backend between
+you and the chain, and no database of ours that could disagree with it. The endpoint is a
+default, not a fixture: the footer has a picker, so pointing it at `http://127.0.0.1:8545` gives
+the same board over your own node's copy of the chain.
 
-`silvra-net/helix-explorer` is the *older* explorer and is not what this is. It no longer
-publishes anywhere.
+The endpoint is deliberately **not** settable by URL parameter — `?rpc=…` would let someone hand
+you a link that looks like this site and shows a chain of their invention.
 
-## The accent colour is patched
+## Working on it
 
-The build shipped a gold accent (`--accent: #d4af37`, plus `--accent-glow` and a lavender
-`--lav`). Everything else in it already matched the Helix design system exactly — `--ground`,
-`--panel`, `--ink`, `--dim` and the state colours are the same hexes as `helix/gui/src/styles.css`
-— so the accent was the one thing making the explorer look like a different product. It is now
-white on dark and black on light, which is what that system says an accent is: colour stays
-reserved for state, which is why DEGRADED and slow block intervals are still amber.
+```bash
+npm install
+npm run dev       # http://localhost:5273
+npm test          # 73 tests
+npm run build
+```
 
-Seven values in `assets/index-6yly-It2.css`. **A rebuild from source will bring the gold back**
-unless the source is changed too.
+A push to `main` runs the tests and publishes. `404.html` is a copy of `index.html`, which is
+what lets a deep link like `/block/41180` survive a hard refresh: Pages serves it for any path
+that was never built, with status 404, and the client router renders the right page.
 
-## Data
+## History
 
-Everything on screen comes from the public node at `node.silvra.net`, read from the visitor's
-own browser. There is no backend here — this repository serves static files and nothing else.
+This repository previously held a *built* explorer with no source beside it. The source lives
+here now; it came from `silvra-net/helix-explorer`, which is the same application and is no
+longer published anywhere.
