@@ -19,6 +19,18 @@ with status 404 and the client router renders the right page.
 `silvra-net/helix-explorer` is the *older* explorer and is not what this is. It no longer
 publishes anywhere.
 
+## The accent colour is patched
+
+The build shipped a gold accent (`--accent: #d4af37`, plus `--accent-glow` and a lavender
+`--lav`). Everything else in it already matched the Helix design system exactly — `--ground`,
+`--panel`, `--ink`, `--dim` and the state colours are the same hexes as `helix/gui/src/styles.css`
+— so the accent was the one thing making the explorer look like a different product. It is now
+white on dark and black on light, which is what that system says an accent is: colour stays
+reserved for state, which is why DEGRADED and slow block intervals are still amber.
+
+Seven values in `assets/index-6yly-It2.css`. **A rebuild from source will bring the gold back**
+unless the source is changed too.
+
 ## Data
 
 Everything on screen comes from the public node at `node.silvra.net`, read from the visitor's
