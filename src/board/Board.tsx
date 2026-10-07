@@ -71,8 +71,10 @@ export function Board() {
 
   // Immutable and therefore fetched exactly once for the life of the page, cache or no cache.
   const genesis = useAsync(() => rpc.blockByHeight(0), []);
-  // Named by its genesis, not assumed: the picker can point this board at a private chain.
-  const chain = chainOf(genesis.data?.hash);
+  // Named by its genesis, not assumed: the picker can point this board at a private chain. The
+  // reference is the public node's own block 0 (the same request, cached, on the default endpoint).
+  const mainnet = useAsync(() => rpc.mainnetGenesis(), []);
+  const chain = chainOf(genesis.data?.hash, mainnet.data?.hash);
 
   const intervals = gaps(blocks).map((g) => g.seconds);
   const expected = expectedGap(intervals);
