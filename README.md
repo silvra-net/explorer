@@ -24,7 +24,7 @@ you a link that looks like this site and shows a chain of their invention.
 ```bash
 npm install
 npm run dev       # http://localhost:5273
-npm test          # 73 tests
+npm test          # 76 tests
 npm run build
 ```
 

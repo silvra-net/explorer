@@ -2,6 +2,7 @@ import { useCallback, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { num, shortHash } from "../format";
 import { rpc } from "../rpc";
+import { chainOf } from "../config";
 import { expectedGap, gaps } from "../rhythm";
 import { absentCount, attendance, proposerVersions, versionSpread } from "../attendance";
 import { faultTolerance, faultToleranceLabel } from "../quorum";
@@ -70,6 +71,8 @@ export function Board() {
 
   // Immutable and therefore fetched exactly once for the life of the page, cache or no cache.
   const genesis = useAsync(() => rpc.blockByHeight(0), []);
+  // Named by its genesis, not assumed: the picker can point this board at a private chain.
+  const chain = chainOf(genesis.data?.hash);
 
   const intervals = gaps(blocks).map((g) => g.seconds);
   const expected = expectedGap(intervals);
@@ -366,10 +369,20 @@ export function Board() {
           <b>P2P</b>
           <i>{status?.p2p_public_addr ?? "—"}</i>
         </span>
-        <span className="devnet">
-          <b>Devnet</b>
-          <i>HLX here is a valueless test token; the chain is reset when it needs to be</i>
-        </span>
+        {chain === "mainnet" && (
+          <span className="network">
+            <b>Mainnet</b>
+            <i title="Not reset any more: the rules change through governance, at a height everyone can see coming.">
+              since 1.0.0 · no resets · HLX is not an investment
+            </i>
+          </span>
+        )}
+        {chain === "other" && (
+          <span className="network other">
+            <b>Other chain</b>
+            <i>not the public mainnet: this genesis differs</i>
+          </span>
+        )}
         <span className="spacer" />
         <EndpointPicker />
       </div>
