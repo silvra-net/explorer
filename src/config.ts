@@ -50,18 +50,20 @@ export function isCustomRpc(): boolean {
 }
 
 /**
- * The public mainnet's genesis hash, which is also its chain id.
+ * Which chain an endpoint serves, judged by its genesis — block 0's hash, which is also the chain
+ * id every signature is bound to.
  *
- * The node compiles the same value in (`DEFAULT_GENESIS_HASH` in helix-core/src/chain.rs) and the
- * v1.0.0 release notes announce it. The board compares the endpoint's block 0 against it, so a
- * private chain reached through the picker is never labelled mainnet. The mainnet is not reset;
- * should it ever start over, this changes in the same release — the node's own copy once went
- * stale exactly that way.
+ * The public node at DEFAULT_RPC *is* the mainnet; any other endpoint is mainnet only if its block
+ * 0 is the public node's block 0. The reference is asked for, not written down here: a hash pinned
+ * in this file went stale within hours when the 1.0.0 genesis was pinned again, and the board then
+ * called the real mainnet "another chain". Asking the public node cannot drift that way.
+ *
+ * Returns null while either hash is still unknown, so nothing is claimed before it is known.
  */
-export const MAINNET_GENESIS = "dcec68407464aae51a9b1c2b6817d0a64b439b5b6c1234b125f901a59a13f390";
-
-/** Which chain a genesis hash belongs to, or null while block 0 has not arrived. */
-export function chainOf(genesisHash: string | null | undefined): "mainnet" | "other" | null {
-  if (!genesisHash) return null;
-  return genesisHash.toLowerCase() === MAINNET_GENESIS ? "mainnet" : "other";
+export function chainOf(
+  genesisHash: string | null | undefined,
+  mainnetGenesis: string | null | undefined,
+): "mainnet" | "other" | null {
+  if (!genesisHash || !mainnetGenesis) return null;
+  return genesisHash.toLowerCase() === mainnetGenesis.toLowerCase() ? "mainnet" : "other";
 }

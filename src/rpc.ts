@@ -1,4 +1,4 @@
-import { getRpcBase } from "./config";
+import { DEFAULT_RPC, getRpcBase } from "./config";
 import type {
   Account,
   BlockHeader,
@@ -43,13 +43,14 @@ export class RpcError extends Error {
  */
 const immutableCache = new Map<string, unknown>();
 
-/** Cache key includes the endpoint so switching nodes never serves another chain's block. */
-function cacheKey(path: string): string {
-  return `${getRpcBase()}${path}`;
-}
-
-async function request<T>(path: string, opts?: { cache?: boolean }): Promise<T> {
-  const key = cacheKey(path);
+/**
+ * `base` defaults to the endpoint the visitor chose; only the mainnet reference below asks the
+ * public node directly. The cache key includes the endpoint, so switching nodes never serves
+ * another chain's block.
+ */
+async function request<T>(path: string, opts?: { cache?: boolean; base?: string }): Promise<T> {
+  const base = opts?.base ?? getRpcBase();
+  const key = `${base}${path}`;
   if (opts?.cache) {
     const hit = immutableCache.get(key);
     if (hit !== undefined) return hit as T;
@@ -57,7 +58,7 @@ async function request<T>(path: string, opts?: { cache?: boolean }): Promise<T> 
 
   let res: Response;
   try {
-    res = await fetch(`${getRpcBase()}${path}`, {
+    res = await fetch(`${base}${path}`, {
       headers: { Accept: "application/json" },
     });
   } catch (e) {
@@ -65,7 +66,7 @@ async function request<T>(path: string, opts?: { cache?: boolean }): Promise<T> 
     // error, because the fix is different — one is "the chain says no", the other "nobody
     // answered".
     throw new RpcError(
-      `cannot reach ${getRpcBase()} — ${e instanceof Error ? e.message : "network error"}`,
+      `cannot reach ${base} — ${e instanceof Error ? e.message : "network error"}`,
       0,
     );
   }
@@ -90,7 +91,7 @@ async function request<T>(path: string, opts?: { cache?: boolean }): Promise<T> 
     // anything but this API. Parsing it would turn an infrastructure problem into a confusing
     // render bug three components away.
     throw new RpcError(
-      `${getRpcBase()} answered with ${ct || "an unknown content type"}, not JSON — is this a Helix node?`,
+      `${base} answered with ${ct || "an unknown content type"}, not JSON — is this a Helix node?`,
       res.status,
     );
   }
@@ -112,6 +113,9 @@ export const rpc = {
 
   blockByHeight: (height: number) =>
     request<BlockSummary>(`/blocks/height/${height}`, { cache: true }),
+
+  /** Block 0 of the public node — the mainnet's genesis, the reference `chainOf` compares to. */
+  mainnetGenesis: () => request<BlockSummary>("/blocks/height/0", { cache: true, base: DEFAULT_RPC }),
 
   blockByHash: (hash: string) =>
     request<BlockSummary>(`/blocks/hash/${hash}`, { cache: true }),
