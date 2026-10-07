@@ -36,9 +36,9 @@ export function useBlockWindow(tipHeight: number | null, size: number) {
     async function run() {
       const known = fetchedUpTo.current;
 
-      // The tip moved backwards. On a devnet that is a chain reset, and on any chain it means
-      // the blocks in hand describe a history this node does not have. Keeping them and
-      // appending would splice two chains into one list, so the window starts over.
+      // The tip moved backwards: a node that is behind, or a private chain that was started
+      // over. Either way the blocks in hand describe a history this node does not have. Keeping
+      // them and appending would splice two chains into one list, so the window starts over.
       const reset = known !== null && tipHeight! < known;
       if (reset) setBlocks([]);
 

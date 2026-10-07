@@ -1444,9 +1444,11 @@ th.r {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.strip .devnet i {
-  color: var(--warn-ink);
+.strip .network i {
   font-family: var(--sans);
+}
+.strip .network.other i {
+  color: var(--warn-ink);
 }
 .strip .spacer {
   margin-left: auto;

@@ -87,9 +87,9 @@ export function verdict(input: VerdictInput): Verdict {
     A missing validator matters when the set cannot absorb it, and that depends entirely on how
     big the set is.
 
-    On today's three-validator devnet every signature is load-bearing: with equal power and a two
-    thirds threshold, all three must agree, so `spare` is 0 and a single miss is not a blemish on
-    a healthy chain — it is the chain briefly not finalizing. On a set of twenty with room for
+    In a set of three with equal power every signature is load-bearing: with a two-thirds
+    threshold all three must agree, so `spare` is 0 and a single miss is not a blemish on a
+    healthy chain — it is the chain briefly not finalizing. On a set of twenty with room for
     six, one validator missing a round is an operator's problem and not the network's, and a
     board that shouted DEGRADED at it would be teaching people to ignore the most important word
     on the screen.

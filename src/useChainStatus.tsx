@@ -62,7 +62,8 @@ export function ChainStatusProvider({ children }: { children: ReactNode }) {
     if (prev === null) return;
 
     // Strictly greater: pointing the explorer at a node that is behind moves the height *down*,
-    // and a devnet reset moves it back to zero. Neither is the chain advancing.
+    // and so does switching to a private chain that was started over. Neither is the chain
+    // advancing.
     if (tipHeight > prev) {
       setAdvancedAt(Date.now());
       setAdvances((n) => n + 1);
