@@ -7,6 +7,7 @@ import type {
   GovParams,
   HistoryTx,
   MempoolInfo,
+  NodeDiagnostics,
   NodeStatus,
   Proposal,
   TxDetail,
@@ -104,6 +105,7 @@ async function request<T>(path: string, opts?: { cache?: boolean; base?: string 
 export const rpc = {
   status: () => request<NodeStatus>("/status"),
   mempool: () => request<MempoolInfo>("/mempool"),
+  diagnostics: () => request<NodeDiagnostics>("/diagnostics"),
 
   latestBlock: () => request<BlockSummary>("/blocks/latest"),
 

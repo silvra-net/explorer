@@ -25,6 +25,18 @@ export interface NodeStatus {
   sync_target_height?: number | null;
 }
 
+/**
+ * `/diagnostics` — what the node reports about itself. Only the fields this app reads.
+ *
+ * `peer_tip_height` is the highest tip any peer announces, null while no peer has said anything
+ * (and absent on nodes older than 0.14.2). It is the one way to tell a node that is behind from a
+ * chain that is slow — see `lag.ts`.
+ */
+export interface NodeDiagnostics {
+  height: number;
+  peer_tip_height?: number | null;
+}
+
 /** A transaction as it appears inside a block listing — the compact view. */
 export interface BlockTx {
   hash: string;
