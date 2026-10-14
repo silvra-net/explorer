@@ -32,6 +32,27 @@ describe("verdict", () => {
     expect(v.state).toBe("syncing");
   });
 
+  it("says behind, not stalled, when the newest block is old because this node is late", () => {
+    // Mainnet, 2026-10-14: node.silvra.net nine blocks back on a 1-second chain. Its newest block
+    // was ten seconds old, which the stall check reads as the chain stopping.
+    const v = verdict({ ...healthy, expected: 1, sinceTip: 11, behind: 9 });
+    expect(v.state).toBe("behind");
+    expect(v.why).toContain("9 blocks behind");
+  });
+
+  it("stays quiet for the block or two a node at the tip trails by", () => {
+    expect(verdict({ ...healthy, behind: 2 }).state).toBe("producing");
+    expect(verdict({ ...healthy, behind: null }).state).toBe("producing");
+  });
+
+  it("prefers syncing over behind, because the node already says it is catching up", () => {
+    expect(verdict({ ...healthy, syncing: true, behind: 20000 }).state).toBe("syncing");
+  });
+
+  it("puts behind above a jail, because everything about the set is that far out of date", () => {
+    expect(verdict({ ...healthy, behind: 50, jailed: 1 }).state).toBe("behind");
+  });
+
   it("tolerates a long round without calling it a stall", () => {
     // The heartbeat turns red at three intervals. The verdict waits for ten, so an ordinary
     // slow round does not put the board into an alarm state.

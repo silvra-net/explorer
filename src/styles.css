@@ -526,7 +526,8 @@ h3 {
 .state-degraded .dot {
   background: var(--warn-ink);
 }
-.state-syncing .dot {
+.state-syncing .dot,
+.state-behind .dot {
   background: var(--warn-ink);
 }
 .state-stalled .dot,

@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { rpc } from "./rpc";
 import { useAsync } from "./useAsync";
+import { blocksBehind } from "./lag";
 import type { BlockSummary, NodeStatus } from "./types";
 
 /**
@@ -20,6 +21,10 @@ import type { BlockSummary, NodeStatus } from "./types";
  *   this is the cheapest request the app makes.
  * - **`/status` every five seconds.** Supply, accounts, mempool, sync state — none of which
  *   changes in a way anybody watches second by second, and none of which carries a timestamp.
+ *
+ * And `/diagnostics` at the same five seconds, for one number: how far the node is behind the tip
+ * its peers report (`lag.ts`). A failure there is not a failure of the page — a node that does
+ * not serve it simply leaves the lag unknown, and `error` stays about the two polls above.
  */
 export interface ChainStatus {
   status: NodeStatus | null;
@@ -34,6 +39,10 @@ export interface ChainStatus {
   advancedAt: number | null;
   /** How many blocks this page has watched land since it was opened. */
   advances: number;
+  /** Blocks between this node and the highest tip its peers report, or null if it cannot say. */
+  behind: number | null;
+  /** That highest tip, as the node reports it. */
+  peerTip: number | null;
 }
 
 const TIP_MS = 2000;
@@ -44,6 +53,7 @@ const Ctx = createContext<ChainStatus | null>(null);
 export function ChainStatusProvider({ children }: { children: ReactNode }) {
   const status = useAsync(() => rpc.status(), [], STATUS_MS);
   const tip = useAsync(() => rpc.latestBlock(), [], TIP_MS);
+  const diagnostics = useAsync(() => rpc.diagnostics(), [], STATUS_MS);
 
   const [advancedAt, setAdvancedAt] = useState<number | null>(null);
   const [advances, setAdvances] = useState(0);
@@ -81,9 +91,14 @@ export function ChainStatusProvider({ children }: { children: ReactNode }) {
     reload: () => {
       status.reload();
       tip.reload();
+      diagnostics.reload();
     },
     advancedAt,
     advances,
+    // From one response, never paired with the height of another poll: two requests apart is
+    // not lag. A failed diagnostics read leaves the last answer; a node without the route, none.
+    behind: blocksBehind(diagnostics.data?.height, diagnostics.data?.peer_tip_height),
+    peerTip: diagnostics.data?.peer_tip_height ?? null,
   };
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

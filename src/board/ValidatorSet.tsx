@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { shortAddr } from "../format";
 import { versionSpread, type Attendance } from "../attendance";
+import { jailState } from "../lag";
 import type { Validator } from "../types";
 
 /**
@@ -22,6 +23,7 @@ export function ValidatorSet({
   attendance,
   totalPower,
   versions,
+  height,
   focused,
   onFocus,
 }: {
@@ -36,6 +38,8 @@ export function ValidatorSet({
    * with the version that actually built a block rather than one a node claims to run.
    */
   versions: Map<string, string>;
+  /** This node's height, to tell a jail that is running from one that is only waiting to be lifted. */
+  height: number | null;
   /** The validator whose turns are singled out across the board, or null. */
   focused: string | null;
   onFocus: (address: string | null) => void;
@@ -103,8 +107,17 @@ export function ValidatorSet({
               <Link className="mono vaddr" to={`/address/${v.address}`} title={v.address}>
                 {shortAddr(v.address)}
               </Link>
-              {v.jailed_until !== null ? (
-                <span className="pill bad">jailed</span>
+              {jailState(v.jailed_until, height) === "jailed" ? (
+                <span className="pill bad" title={`Jailed until block ${v.jailed_until}`}>
+                  jailed
+                </span>
+              ) : jailState(v.jailed_until, height) === "unjail-pending" ? (
+                <span
+                  className="pill warn"
+                  title={`The jail ended at block ${v.jailed_until}. This validator is back once it sends an unjail transaction.`}
+                >
+                  unjail pending
+                </span>
               ) : v.active ? (
                 <span className="pill ok">{v.tier}</span>
               ) : (

@@ -9,7 +9,9 @@
  * misbehave is a rule nobody checks.
  */
 
-export type ChainState = "producing" | "degraded" | "stalled" | "syncing" | "unreachable";
+import { isBehind } from "./lag";
+
+export type ChainState = "producing" | "degraded" | "stalled" | "behind" | "syncing" | "unreachable";
 
 export interface Verdict {
   state: ChainState;
@@ -24,6 +26,11 @@ export interface VerdictInput {
   unreachable: boolean;
   /** The node says it is still catching up. */
   syncing: boolean;
+  /**
+   * Blocks between this node and the tip its peers report, or null if unknown. Optional so a
+   * caller that has no `/diagnostics` reading need not invent one.
+   */
+  behind?: number | null;
   /** Seconds since the newest block, or null before one is known. */
   sinceTip: number | null;
   /** The interval this chain has been keeping, in seconds. */
@@ -44,9 +51,15 @@ export interface VerdictInput {
  * data is the single worst thing this screen could do. Syncing outranks the block-timing checks
  * for the same reason: a node replaying history produces blocks on its own schedule, and timing
  * it against the live chain's rhythm would report a stall that is really a catch-up.
+ *
+ * "Behind" sits between the two for the same reason again. A node a few blocks back is not
+ * replaying history — `is_syncing` is false — but its newest block is as old as its lag, and the
+ * stall check below would read that lag as the chain stopping. On a 1-second chain a node ten
+ * blocks behind is exactly at the stall line.
  */
 export function verdict(input: VerdictInput): Verdict {
   const { unreachable, syncing, sinceTip, expected, absent, jailed, spare } = input;
+  const behind = input.behind ?? null;
 
   if (unreachable) {
     return {
@@ -61,6 +74,14 @@ export function verdict(input: VerdictInput): Verdict {
       state: "syncing",
       label: "SYNCING",
       why: "This node is replaying history and has not caught up. What it reports is behind the chain.",
+    };
+  }
+
+  if (isBehind(behind)) {
+    return {
+      state: "behind",
+      label: "BEHIND",
+      why: `This node is ${behind} block${behind === 1 ? "" : "s"} behind the tip its peers report. What it shows is that far behind the chain.`,
     };
   }
 

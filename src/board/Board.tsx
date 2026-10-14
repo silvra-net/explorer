@@ -7,6 +7,7 @@ import { expectedGap, gaps } from "../rhythm";
 import { absentCount, attendance, proposerVersions, versionSpread } from "../attendance";
 import { faultTolerance, faultToleranceLabel } from "../quorum";
 import { verdict } from "../verdict";
+import { isBehind, jailState } from "../lag";
 import { useAsync } from "../useAsync";
 import { useBlockWindow } from "../useBlockWindow";
 import { useChainStatus } from "../useChainStatus";
@@ -43,7 +44,7 @@ const WINDOW = 40;
 const PAGE = 40;
 
 export function Board() {
-  const { status, tip, height, error, advances } = useChainStatus();
+  const { status, tip, height, error, advances, behind, peerTip } = useChainStatus();
   const vals = useAsync(() => rpc.validators(), [], 30000);
   const navigate = useNavigate();
   const theme = useThemePref();
@@ -99,10 +100,16 @@ export function Board() {
 
   const sinceTip = tip ? Math.max(0, (Date.now() - tip.timestamp) / 1000) : null;
   const jailed = validators.filter((v) => v.jailed_until !== null).length;
+  // Of those, the ones whose jail has run out and who are missing only their own unjail
+  // transaction. Still out of consensus — the verdict counts them — but the alert says which.
+  const unjailPending = validators.filter(
+    (v) => jailState(v.jailed_until, height) === "unjail-pending",
+  ).length;
 
   const state = verdict({
     unreachable: error !== null,
     syncing: status?.is_syncing ?? false,
+    behind,
     sinceTip,
     expected,
     absent: absentCount(attendanceRows),
@@ -258,12 +265,31 @@ export function Board() {
           the chain tip.
         </div>
       )}
+      {/* Said before anything about the set, because everything about the set below is read from
+          this node and is as late as it is. The heartbeat and "last block" go amber at a few
+          blocks of lag, and without this line that reads as a slow chain. */}
+      {!status?.is_syncing && isBehind(behind) && (
+        <div className="alert warn">
+          <b>
+            This node is {num(behind)} block{behind === 1 ? "" : "s"} behind.
+          </b>{" "}
+          Its peers report block {peerTip === null ? "—" : num(peerTip)}; the board shows this node's copy, so the newest
+          block below looks older than it is. A node that follows the chain by block sync rather
+          than gossip trails the tip by a few blocks. To see the live tip, pick another endpoint.
+        </div>
+      )}
       {jailed > 0 && (
         <div className="alert bad">
           <b>
-            {jailed} validator{jailed === 1 ? "" : "s"} jailed.
+            {jailed} validator{jailed === 1 ? "" : "s"} out of consensus.
           </b>{" "}
-          They are not taking part in consensus.
+          {unjailPending === 0
+            ? `${jailed === 1 ? "It is" : "They are"} jailed.`
+            : unjailPending === jailed
+              ? jailed === 1
+                ? "Its jail is over — it is back once it sends an unjail transaction."
+                : "Their jails are over — each is back once it sends an unjail transaction."
+              : `${jailed - unjailPending} jailed; ${unjailPending} with the jail over, back once each sends an unjail transaction.`}
         </div>
       )}
       {/* Not a fault, but the state an operator most wants to know they are in: a set running
@@ -312,6 +338,7 @@ export function Board() {
             attendance={attendanceByAddress}
             totalPower={totalPower}
             versions={versions}
+            height={height}
             focused={focused}
             onFocus={setFocused}
           />
