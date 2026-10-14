@@ -1,6 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import { rpc } from "./rpc";
+import { forEachLimited } from "./pool";
 import type { BlockHeader } from "./types";
+
+/** Header requests in flight at once — see `useHeaders`. */
+const HEADERS_AT_ONCE = 6;
 
 /**
  * Fetch the commit certificate for a list of block heights.
@@ -8,9 +12,11 @@ import type { BlockHeader } from "./types";
  * The block listing endpoint does not carry `last_commit`, so the co-signature strip needs one
  * extra request per row. Three things keep that honest:
  *
- * - **Requests are sequential, not parallel.** The node rate-limits to a burst of 30 with 10/s
- *   refill; firing 25 headers at once from every visitor would spend the whole burst on one
- *   page load and start returning 429s that look like chain errors.
+ * - **At most six requests at a time** (`forEachLimited`). One after another, forty headers took
+ *   three to four seconds through the public node's tunnel, every one a round trip spent waiting;
+ *   all at once would spend a visitor's rate-limit burst on one page load and start returning
+ *   429s that look like chain errors. (This said "a burst of 30 with 10/s" until 2026-10-14; the
+ *   node's default has been 500 and 100/s per address since 2026-09.) Newest first, as before.
  * - **Results are cached in the RPC layer** (`cache: true`), and a finalized block's header
  *   never changes — so paging back and forth costs nothing after the first visit, and a poll
  *   that adds one block fetches exactly one header.
@@ -32,25 +38,31 @@ export function useHeaders(heights: number[]): Map<number, BlockHeader> {
     let cancelled = false;
 
     async function run() {
-      for (const h of heights) {
-        if (cancelled) return;
-        if (requested.current.has(h)) continue;
-        requested.current.add(h);
-
-        try {
-          const header = await rpc.blockHeader(h);
-          if (cancelled) return;
-          setHeaders((cur) => {
-            const next = new Map(cur);
-            next.set(h, header);
-            return next;
-          });
-        } catch {
-          // Leave it out of the map — the strip renders "unknown" for this row. Allow a
-          // later pass to retry it rather than marking it permanently missing.
-          requested.current.delete(h);
-        }
-      }
+      await forEachLimited(
+        heights,
+        HEADERS_AT_ONCE,
+        async (h) => {
+          // Marked when its request starts, as before: a pass cancelled half-way (StrictMode, a
+          // new tip) leaves the rest unmarked for the next one, and one in flight is not asked
+          // for twice.
+          if (requested.current.has(h)) return;
+          requested.current.add(h);
+          try {
+            const header = await rpc.blockHeader(h);
+            if (cancelled) return;
+            setHeaders((cur) => {
+              const next = new Map(cur);
+              next.set(h, header);
+              return next;
+            });
+          } catch {
+            // Leave it out of the map — the strip renders "unknown" for this row. Allow a
+            // later pass to retry it rather than marking it permanently missing.
+            requested.current.delete(h);
+          }
+        },
+        () => cancelled,
+      );
     }
 
     void run();
