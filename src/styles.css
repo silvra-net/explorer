@@ -2145,6 +2145,10 @@ th.r {
   border-radius: var(--radius);
   padding: 18px 20px;
   min-width: 0;
+  /* A ring and its legend need the card's width, not the window's: the rich-list card is the
+     narrow half of its row on a wide screen, and side by side its legend squeezed every address
+     down to a letter or two. */
+  container-type: inline-size;
 }
 .net-card.flush {
   padding: 0;
@@ -2279,6 +2283,17 @@ th.r {
 .legend-list .share {
   text-align: right;
   color: var(--faint);
+}
+@container (max-width: 560px) {
+  .ring {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 16px;
+  }
+  .ring .donut {
+    max-width: 220px;
+    width: 100%;
+    margin: 0 auto;
+  }
 }
 
 /* ---------- supply bars ---------- */
