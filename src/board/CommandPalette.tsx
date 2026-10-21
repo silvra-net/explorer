@@ -95,6 +95,13 @@ export function CommandPalette({
         run: onCycleTheme,
       },
       {
+        id: "network",
+        label: "Open the network page — stake, supply, rich list",
+        hint: "/network",
+        group: "Board",
+        run: () => navigate("/network"),
+      },
+      {
         id: "node",
         label: "Open this node's own status page",
         hint: "node.silvra.net",

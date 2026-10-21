@@ -3,6 +3,7 @@ import ReactDOM from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
 import App from "./App";
 import { applyStoredTheme } from "./theme";
+import "./styles/fonts.css";
 import "./styles.css";
 
 // index.html already set the attribute before first paint; this keeps the module the single
