@@ -166,3 +166,36 @@ export interface Delegation {
   amount_hlx: number;
   [key: string]: unknown;
 }
+
+/** One account of `/accounts/top`, every amount an exact nano string. */
+export interface TopAccount {
+  address: string;
+  /** Its registered `.hlx` name, if it holds one. */
+  name: string | null;
+  liquid_nano: string;
+  /** Its own stake as a validator. */
+  staked_nano: string;
+  /** What its delegations to validators' pools are worth now. */
+  delegated_nano: string;
+  /** Unstaked or undelegated, waiting out the unbonding period. */
+  unbonding_nano: string;
+  /** The four above together: everything this account holds. */
+  held_nano: string;
+}
+
+/**
+ * `/accounts/top` — the largest accounts by what they hold, and the same four totals over every
+ * account on the chain. Added in node 1.1.1; an older node answers 404.
+ */
+export interface TopAccounts {
+  state_height: number;
+  total_accounts: number;
+  totals: {
+    liquid_nano: string;
+    staked_nano: string;
+    delegated_nano: string;
+    unbonding_nano: string;
+    held_nano: string;
+  };
+  accounts: TopAccount[];
+}

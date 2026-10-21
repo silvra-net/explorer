@@ -10,15 +10,22 @@ import type { ReactNode } from "react";
  * No borders. The grid sits on a `--line` background with 1px gaps, so the hairlines between
  * cells are the background showing through and no two cells can disagree about the rule
  * between them.
+ *
+ * The header is the site's section label — an index, a short rule, the name — so the board reads
+ * as one of silvra.net's pages. The index is the order a reader meets the panels in.
  */
 export function Cell({
+  index,
   title,
   aside,
   children,
   area,
   pad = true,
   ownScroll = false,
+  hud = false,
 }: {
+  /** Two digits, "01" to "07". */
+  index: string;
   title: string;
   aside?: ReactNode;
   children: ReactNode;
@@ -35,15 +42,30 @@ export function Cell({
    * the scrolling happens in exactly one place.
    */
   ownScroll?: boolean;
+  /**
+   * Draw the frame of the site's situation displays — the pattern at the edges, scan lines, four
+   * corner marks. For the one panel that reports the chain's state, and only that one: a frame
+   * that is on every panel says nothing about any of them.
+   */
+  hud?: boolean;
 }) {
   const cls = ["body"];
   if (pad) cls.push("pad");
   if (ownScroll) cls.push("own-scroll");
 
   return (
-    <section className="cell" style={{ gridArea: area }}>
+    <section className={hud ? "cell hud" : "cell"} style={{ gridArea: area }}>
+      {hud && (
+        <div className="hud-deco" aria-hidden="true">
+          <div className="hud-camo" />
+          <div className="hud-scan" />
+        </div>
+      )}
       <header>
-        <h2>{title}</h2>
+        <h2>
+          <span className="cell-index">{index}</span>
+          {title}
+        </h2>
         {aside !== undefined && <span className="aside">{aside}</span>}
       </header>
       <div className={cls.join(" ")}>{children}</div>

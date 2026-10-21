@@ -11,6 +11,7 @@ import type {
   NodeStatus,
   Proposal,
   TxDetail,
+  TopAccounts,
   ValidatorList,
 } from "./types";
 
@@ -141,6 +142,23 @@ export const rpc = {
     request<{ delegations: Delegation[] }>(`/accounts/${address}/delegations`),
 
   validators: () => request<ValidatorList>("/validators"),
+
+  /**
+   * The largest accounts and the chain-wide holdings totals, from node 1.1.1 on.
+   *
+   * An older node does not answer 404 here: it reads `top` as an address on `/accounts/:address`
+   * and refuses it as malformed (400). That is "this node cannot do it", not a failure, so it is
+   * reported the way a missing route is — the page then says which version brings it instead of
+   * showing "invalid address format: top" as if something had broken.
+   */
+  topAccounts: async (limit: number) => {
+    try {
+      return await request<TopAccounts>(`/accounts/top?limit=${limit}`);
+    } catch (e) {
+      if (e instanceof RpcError && e.status === 400) throw new RpcError(e.message, 404);
+      throw e;
+    }
+  },
 
   govParams: () => request<GovParams>("/governance/params"),
 

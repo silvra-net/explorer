@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { num, shortHash } from "../format";
 import { rpc } from "../rpc";
 import { chainOf } from "../config";
@@ -13,10 +13,9 @@ import { useBlockWindow } from "../useBlockWindow";
 import { useChainStatus } from "../useChainStatus";
 import { useHeaders } from "../useHeaders";
 import { Rhythm } from "../components/Rhythm";
-import { Search } from "../components/Search";
-import { LiveDot } from "../components/LiveDot";
+import { BlockCards } from "../components/BlockCards";
 import { EndpointPicker } from "../components/EndpointPicker";
-import { ThemeToggle, useThemePref } from "../components/ThemeToggle";
+import { useThemePref } from "../components/ThemeToggle";
 import { CommandPalette } from "./CommandPalette";
 import { useBoardKeys } from "./useBoardKeys";
 import { Cell } from "./Cell";
@@ -26,7 +25,7 @@ import { ValidatorSet } from "./ValidatorSet";
 import { BlockStream } from "./BlockStream";
 import { TxFeed } from "./TxFeed";
 import { Inspector } from "./Inspector";
-import { Clock } from "./Clock";
+import { TopBar } from "./TopBar";
 import { StatusRail, count, secs } from "./StatusRail";
 import type { Vital } from "./StatusRail";
 
@@ -231,30 +230,7 @@ export function Board() {
 
   return (
     <div className="board-app">
-      <div className="topbar">
-        <Link className="brand" to="/">
-          <img src="/logo.png" alt="" width={22} height={22} />
-          <span className="name">Helix</span>
-          <span className="sub">Explorer</span>
-        </Link>
-        <LiveDot />
-        <div className="topsearch">
-          <Search compact inputRef={searchInput} />
-        </div>
-        <Clock />
-        <button
-          type="button"
-          className="bbtn"
-          onClick={() => setPaletteOpen(true)}
-          title="Commands and keyboard shortcuts"
-        >
-          ⌘K
-        </button>
-        <a href="https://node.silvra.net" title="The status page this node serves about itself">
-          Node
-        </a>
-        <ThemeToggle label={theme.label} onCycle={theme.cycle} />
-      </div>
+      <TopBar searchInput={searchInput} onPalette={() => setPaletteOpen(true)} theme={theme} />
 
       <StatusRail vitals={vitals} />
 
@@ -304,7 +280,13 @@ export function Board() {
       )}
 
       <div className="board">
-        <Cell area="state" title="Chain" aside={status ? `v${status.version}` : undefined}>
+        <Cell
+          index="01"
+          area="state"
+          title="Chain"
+          aside={status ? `v${status.version}` : undefined}
+          hud
+        >
           <ChainState
             verdict={state}
             height={height}
@@ -316,13 +298,17 @@ export function Board() {
 
         {/* No aside: the rhythm draws its own reading line, because hovering a bar replaces it
             with that block's interval. */}
-        <Cell area="rhythm" title="Block rhythm">
-          <Rhythm blocks={blocks} hoverHeight={hoverHeight} onHoverHeight={setHoverHeight} />
+        <Cell index="02" area="rhythm" title="Block rhythm">
+          <div className="rhythm-stack">
+            <BlockCards blocks={blocks} hoverHeight={hoverHeight} onHoverHeight={setHoverHeight} />
+            <Rhythm blocks={blocks} hoverHeight={hoverHeight} onHoverHeight={setHoverHeight} />
+          </div>
         </Cell>
 
         {/* The long sentence version of this belongs in a notice, not in a header that has to
             stay one line tall on a fixed board. The full reading is in the tooltip. */}
         <Cell
+          index="03"
           area="validators"
           title="Validator set"
           aside={
@@ -344,7 +330,7 @@ export function Board() {
           />
         </Cell>
 
-        <Cell area="metrics" title="Telemetry">
+        <Cell index="04" area="metrics" title="Telemetry">
           <Telemetry
             status={status}
             txInWindow={txInWindow}
@@ -352,7 +338,7 @@ export function Board() {
           />
         </Cell>
 
-        <Cell area="blocks" title="Blocks" pad={false} ownScroll>
+        <Cell index="05" area="blocks" title="Blocks" pad={false} ownScroll>
           <BlockStream
             live={blocks}
             liveHeaders={headers}
@@ -371,6 +357,7 @@ export function Board() {
         </Cell>
 
         <Cell
+          index="06"
           area="txs"
           title="Transactions"
           aside={<span className="num">{num(txInWindow)} in the window</span>}
@@ -380,7 +367,7 @@ export function Board() {
           <TxFeed blocks={blocks} />
         </Cell>
 
-        <Cell area="inspector" title="Inspector" pad={false}>
+        <Cell index="07" area="inspector" title="Inspector" pad={false}>
           <Inspector blocks={blocks} />
         </Cell>
       </div>
